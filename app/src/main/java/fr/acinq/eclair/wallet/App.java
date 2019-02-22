@@ -507,6 +507,7 @@ public class App extends Application {
     if (this.dbHelper == null) {
       this.dbHelper = new DBHelper(getApplicationContext());
       this.dbHelper.cleanLightningPayments();
+      this.dbHelper.resetPendingLightningPayments();
     }
 
     // delete unconfirmed onchain txs to get a clean slate before connecting to an electrum server

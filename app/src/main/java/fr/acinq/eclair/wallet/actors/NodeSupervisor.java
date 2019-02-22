@@ -134,6 +134,11 @@ public class NodeSupervisor extends UntypedActor {
       c.setChannelId(event.channelId().toString());
       c.setPeerNodeId(event.remoteNodeId().toString());
 
+      final Iterator<DirectedHtlc> it = event.currentData().commitments().localCommit().spec().htlcs().iterator();
+      while(it.hasNext()) {
+        dbHelper.setLocalInflightPayment(it.next());
+      }
+
       // restore data from DB that were sent only once by the node and may have be persisted
       final LocalChannel channelInDB = dbHelper.getLocalChannel(c.getChannelId());
       if (channelInDB != null) {
@@ -177,6 +182,7 @@ public class NodeSupervisor extends UntypedActor {
           if (h.direction() instanceof IN$) {
             final String htlcPaymentHash = h.add().paymentHash().toString();
             final Payment p = dbHelper.getPayment(htlcPaymentHash, PaymentType.BTC_LN);
+            log.info("found in flight payment with hash={} in channel {}", htlcPaymentHash, event.commitments().channelId().toString());
             if (p != null && p.getStatus() == PaymentStatus.INIT) {
               dbHelper.updatePaymentPending(p);
               paymentRefreshScheduler.tell(Constants.REFRESH, null);
@@ -296,7 +302,13 @@ public class NodeSupervisor extends UntypedActor {
           c.setLocalFeatures(commitments.remoteParams().localFeatures().toString());
           c.setToSelfDelayBlocks(commitments.remoteParams().toSelfDelay());
           c.remoteToSelfDelayBlocks = commitments.localParams().toSelfDelay();
-          c.htlcsInFlightCount = commitments.localCommit().spec().htlcs().iterator().size();
+          final Iterator<DirectedHtlc> it = commitments.localCommit().spec().htlcs().iterator();
+          int htlcsCount = 0;
+          while(it.hasNext()) {
+            dbHelper.setLocalInflightPayment(it.next());
+            htlcsCount++;
+          }
+          c.htlcsInFlightCount = htlcsCount;
           c.setChannelReserveSat(commitments.localParams().channelReserveSatoshis());
           c.setMinimumHtlcAmountMsat(commitments.localParams().htlcMinimumMsat());
           c.setFundingTxId(commitments.commitInput().outPoint().txid().toString());

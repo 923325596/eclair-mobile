@@ -19,6 +19,9 @@ package fr.acinq.eclair.wallet;
 import android.content.Context;
 import android.database.Cursor;
 
+import fr.acinq.eclair.transactions.DirectedHtlc;
+import fr.acinq.eclair.transactions.IN$;
+import fr.acinq.eclair.transactions.OUT$;
 import org.greenrobot.greendao.DaoException;
 import org.greenrobot.greendao.database.Database;
 import org.greenrobot.greendao.query.DeleteQuery;
@@ -147,6 +150,24 @@ public class DBHelper {
     insertOrUpdatePayment(p);
   }
 
+  public void setLocalInflightPayment(final DirectedHtlc htlc) {
+    final Payment inDB = getPayment(htlc.add().paymentHash().toString(), PaymentType.BTC_LN, PaymentDirection.SENT);
+    if (inDB == null) {
+      final Payment p = new Payment();
+      p.setReference(htlc.add().paymentHash().toString());
+      p.setType(PaymentType.BTC_LN);
+      p.setDirection(htlc.direction() instanceof OUT$ ? PaymentDirection.SENT : PaymentDirection.RECEIVED);
+      p.setAmountSentMsat(htlc.add().amountMsat());
+      p.setStatus(PaymentStatus.PENDING);
+      p.setUpdated(new Date());
+      getDaoSession().getPaymentDao().update(p);
+    } else {
+      inDB.setStatus(PaymentStatus.PENDING);
+      inDB.setUpdated(new Date());
+      getDaoSession().getPaymentDao().update(inDB);
+    }
+  }
+
   public void cleanUpZeroConfs() {
     daoSession.getPaymentDao().queryBuilder()
       .where(PaymentDao.Properties.Type.eq(PaymentType.BTC_ONCHAIN), PaymentDao.Properties.ConfidenceBlocks.eq(0))
@@ -170,6 +191,16 @@ public class DBHelper {
       .buildDelete();
     query.executeDeleteWithoutDetachingEntities();
     daoSession.clear();
+  }
+
+  public void resetPendingLightningPayments() {
+    final List<Payment> payments = daoSession.queryBuilder(Payment.class).where(PaymentDao.Properties.Type.eq(PaymentType.BTC_LN),
+      PaymentDao.Properties.Direction.eq(PaymentDirection.SENT), PaymentDao.Properties.Status.eq(PaymentStatus.PENDING)
+    ).build().list();
+    for(Payment p : payments) {
+      p.setStatus(PaymentStatus.INIT);
+      daoSession.getPaymentDao().update(p);
+    }
   }
 
   public void updatePayment(Payment p) {

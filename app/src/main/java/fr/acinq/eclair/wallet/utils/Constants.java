@@ -17,7 +17,6 @@
 package fr.acinq.eclair.wallet.utils;
 
 import fr.acinq.eclair.wallet.BuildConfig;
-import fr.acinq.eclair.wallet.models.FeeRating;
 
 public interface Constants {
 
@@ -31,9 +30,6 @@ public interface Constants {
    * the time window for this is just a few seconds
    */
   long DESYNC_DIFF_TIMESTAMP_SEC = 60L * 60 * 24 * 30; // 30 days
-  long ONE_MIN_MS = 1000L * 60;
-  long ONE_HOUR_MS = ONE_MIN_MS * 60;
-  long ONE_DAY_MS = ONE_HOUR_MS * 24;
 
   /* ----------- PERMISSIONS & REQUEST CODES ------------ */
 
